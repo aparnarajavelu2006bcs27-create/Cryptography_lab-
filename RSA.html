@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manual RSA Demo</title>
+    <style>
+        body { font-family: Times New Roman; background:#eef2ff; }
+        .container { width:600px; margin:auto; background:white; padding:20px; }
+        input, button { width:100%; padding:6px; margin:4px 0; }
+        pre { background:#f1f5f9; padding:15px; font-size:16px; }
+        button { background:#1e3a8a; color:white; border:none; }
+    </style>
+    <script>
+        function gcd(a, b) {
+            while (b !== 0) {
+                let temp = b;
+                b = a % b;
+                a = temp;
+            }
+            return a;
+        }
+
+        function modexp(base, exp, mod) {
+            let result = 1;
+            base = base % mod;
+            while (exp > 0) {
+                if (exp % 2 === 1) {
+                    result = (result * base) % mod;
+                }
+                exp = Math.floor(exp / 2);
+                base = (base * base) % mod;
+            }
+            return result;
+        }
+
+        function modinv(a, m) {
+            let m0 = m, x0 = 0, x1 = 1;
+            while (a > 1) {
+                let q = Math.floor(a / m);
+                [a, m] = [m, a % m];
+                [x0, x1] = [x1 - q * x0, x0];
+            }
+            return x1 < 0 ? x1 + m0 : x1;
+        }
+
+        function rsaProcess() {
+            const pt = parseInt(document.getElementById("pt").value);
+            const p = parseInt(document.getElementById("p").value);
+            const q = parseInt(document.getElementById("q").value);
+            let log = [];
+
+            // Step 1: Compute n and phi
+            const n = p * q;
+            const phi = (p - 1) * (q - 1);
+            log.push(`n = p * q = ${p} * ${q} = ${n}`);
+            log.push(`phi(n) = (p-1)*(q-1) = ${phi}`);
+
+            // Step 2: Choose e
+            let e = 3;
+            while (gcd(e, phi) !== 1) {
+                e += 2;
+            }
+            log.push(`Choose e such that gcd(e, phi) = 1 → e = ${e}`);
+
+            // Step 3: Compute d
+            const d = modinv(e, phi);
+            log.push(`Compute d ≡ e^(-1) mod phi → d = ${d}`);
+
+            // Step 4: Encrypt
+            const c = modexp(pt, e, n);
+            log.push(`Ciphertext c = pt^e mod n = ${pt}^${e} mod ${n} = ${c}`);
+
+            // Step 5: Decrypt
+            const dec = modexp(c, d, n);
+            log.push(`Decrypted text pt = c^d mod n = ${c}^${d} mod ${n} = ${dec}`);
+
+            document.getElementById("output").innerText = log.join("\n");
+        }
+    </script>
+</head>
+<body>
+<div class="container">
+    <h2 align="center">Manual RSA Encryption/Decryption</h2>
+
+    <input id="pt" type="number" placeholder="Plaintext (number)" required>
+    <input id="p" type="number" placeholder="Prime p" required>
+    <input id="q" type="number" placeholder="Prime q" required>
+    <button onclick="rsaProcess()">PROCESS RSA</button>
+
+    <h3>Step-by-Step Output</h3>
+    <pre id="output"></pre>
+</div>
+</body>
+</html>
