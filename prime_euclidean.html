@@ -1,0 +1,134 @@
+ots
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mathematical Algorithms</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+        h1 {
+            text-align: center;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+        input[type="number"] {
+            padding: 5px;
+            margin: 5px 0;
+            width: 100%;
+        }
+        input[type="submit"] {
+            padding: 10px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        input[type="submit"]:hover {
+            background-color: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>Mathematical Algorithms</h1>
+    
+    <h2>Primality Testing</h2>
+    <form id="primalityForm">
+        <label for="number">Enter a number to check if it's prime:</label>
+        <input type="number" id="number" required>
+        <input type="submit" value="Check Primality">
+    </form>
+    
+    <h2>Primitive Roots</h2>
+    <form id="primitiveRootForm">
+        <label for="primitiveRootNumber">Enter a prime number to find its primitive roots:</label>
+        <input type="number" id="primitiveRootNumber" required>
+        <input type="submit" value="Find Primitive Roots">
+    </form>
+    
+    <h2>Euclidean Algorithm</h2>
+    <form id="euclideanForm">
+        <label for="a">Enter first number (a):</label>
+        <input type="number" id="a" required>
+        <label for="b">Enter second number (b):</label>
+        <input type="number" id="b" required>
+        <input type="submit" value="Check GCD">
+    </form>
+
+    <script>
+        document.getElementById('primalityForm').onsubmit = function(event) {
+            event.preventDefault();
+            const number = parseInt(document.getElementById('number').value);
+            const isPrime = (num) => {
+                if (num <= 1) return false;
+                for (let i = 2; i <= Math.sqrt(num); i++) {
+                    if (num % i === 0) return false;
+                }
+                return true;
+            };
+            alert(isPrime(number) ? `${number} is a prime number.` : `${number} is not a prime number.`);
+        };
+
+        document.getElementById('primitiveRootForm').onsubmit = function(event) {
+            event.preventDefault();
+            const num = parseInt(document.getElementById('primitiveRootNumber').value);
+            const primitiveRoots = (p) => {
+                const roots = [];
+                const isCoprime = (a, b) => {
+                    while (b) {
+                        let temp = b;
+                        b = a % b;
+                        a = temp;
+                    }
+                    return a === 1;
+                };
+
+                for (let g = 2; g < p; g++) {
+                    let isRoot = true;
+                    for (let k = 1; k < p - 1; k++) {
+                        if (Math.pow(g, k) % p === 1) {
+                            isRoot = false;
+                            break;
+                        }
+                    }
+                    if (isRoot && isCoprime(g, p)) {
+                        roots.push(g);
+                    }
+                }
+                return roots;
+            };
+
+            const roots = primitiveRoots(num);
+            if (roots.length > 0) {
+                alert(`Primitive roots of ${num} are: ${roots.join(', ')}`);
+            } else {
+                alert(`No primitive roots found for ${num}.`);
+            }
+        };
+
+        document.getElementById('euclideanForm').onsubmit = function(event) {
+            event.preventDefault();
+            const a = parseInt(document.getElementById('a').value);
+            const b = parseInt(document.getElementById('b').value);
+            const gcd = (x, y) => {
+                while (y !== 0) {
+                    let temp = y;
+                    y = x % y;
+                    x = temp;
+                }
+                return x;
+            };
+            alert(`GCD of ${a} and ${b} is ${gcd(a, b)}.`);
+        };
+    </script>
+</body>
+</html>

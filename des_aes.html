@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Combined S-DES & AES Tools</title>
+    <style>
+        /* Combined styles from both files, slightly organized */
+        body {
+            font-family: Arial, "Courier New", monospace;
+            background-color: #f8f9fa;
+            padding: 20px;
+            color: #111;
+        }
+
+        /* AES area */
+        .aes-section { background: #fff; padding: 15px; margin-bottom: 25px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        .aes-section input[type="text"], .aes-section input[type="number"] { padding: 6px; margin: 0 8px 8px 0; }
+        .round-container { background: white; border: 2px solid #333; padding: 15px; margin-bottom: 15px; border-radius: 5px; width: fit-content; }
+        .matrix { border-collapse: collapse; margin-top: 10px; }
+        .matrix td { border: 1px solid #000; width: 50px; height: 40px; text-align: center; font-weight: bold; font-size: 1.1em; }
+        .g-func { color: #d9534f; font-size: 0.85em; margin-bottom: 8px; border-left: 3px solid #d9534f; padding-left: 10px; }
+        h2, h3 { margin: 6px 0; color: #2c3e50; }
+
+        /* S-DES area */
+        .sdes-section { background: #fff; padding: 15px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+        .sdes-section input { width: 350px; padding: 5px; margin: 5px 0; }
+        .sdes-section button { padding: 8px 20px; margin: 10px 5px 10px 0; background-color: #4CAF50; color: white; border: none; cursor: pointer; }
+        .output { background: white; padding: 15px; margin-top: 15px; white-space: pre-wrap; border: 1px solid #ddd; border-radius: 4px; }
+
+        /* layout */
+        .two-column { display: grid; grid-template-columns: 1fr; gap: 20px; }
+        @media(min-width:1000px) { .two-column { grid-template-columns: 1fr 1fr; } }
+
+        label { display:block; margin-top:6px; font-weight:600; }
+    </style>
+</head>
+<body>
+
+    <h2>Combined Tools: AES Key Schedule & S-DES</h2>
+
+    <div class="two-column">
+
+        <!-- AES Section (left) -->
+        <div class="aes-section">
+            <h3>AES Key Schedule (Row-Wise Matrix)</h3>
+            <div>
+                <label>Master Key (Hex):</label>
+                <input type="text" id="aesKey" value="2b7e151628aed2a6abf7158809cf4f3c" style="width:320px;">
+                <label style="display:inline-block; margin-left:10px;">Rounds:</label>
+                <input type="number" id="aesRounds" value="10" style="width:60px;">
+                <button onclick="generateSchedule()">Generate Schedule</button>
+            </div>
+            <hr>
+            <div id="aesOutput"></div>
+        </div>
+
+        <!-- S-DES Section (right) -->
+        <div class="sdes-section">
+            <h3>S-DES Algorithm (Encrypt & Decrypt)</h3>
+
+            <label>8-bit Input (Plaintext or Ciphertext):</label>
+            <input id="desText" placeholder="e.g. 10101010"><br>
+
+            <label>10-bit Key:</label>
+            <input id="desKey" placeholder="e.g. 1010000010"><br>
+
+            <label>P10:</label>
+            <input id="desP10" placeholder="e.g. 3 5 2 7 4 10 1 9 8 6"><br>
+
+            <label>P8:</label>
+            <input id="desP8" placeholder="e.g. 6 3 7 4 8 5 10 9"><br>
+
+            <label>IP:</label>
+            <input id="desIP" placeholder="e.g. 2 6 3 1 4 8 5 7"><br>
+
+            <label>IP Inverse:</label>
+            <input id="desIPinv" placeholder="e.g. 4 1 3 5 7 2 8 6"><br>
+
+            <label>EP:</label>
+            <input id="desEP" placeholder="e.g. 4 1 2 3 2 3 4 1"><br>
+
+            <button onclick="processSDES(true)">Encrypt</button>
+            <button onclick="processSDES(false)">Decrypt</button>
+
+            <div class="output" id="desResult"></div>
+        </div>
+
+    </div>
+
+<script>
+/* ================= AES SCRIPT (from aes.html) ================= */
+const SBOX = [0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76, 0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0, 0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15, 0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75, 0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84, 0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf, 0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8, 0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2, 0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73, 0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb, 0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79, 0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08, 0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a, 0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e, 0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf, 0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16];
+
+function h(n) { return n.toString(16).padStart(2, '0').toUpperCase(); }
+
+function generateSchedule() {
+    const out = document.getElementById('aesOutput');
+    out.innerHTML = "";
+    let keyStr = document.getElementById('aesKey').value.replace(/\s+/g, '');
+    let maxRounds = parseInt(document.getElementById('aesRounds').value);
+
+    // Validate key hex length (32 hex characters)
+    if (!/^[0-9a-fA-F]{32}$/.test(keyStr)) {
+        out.textContent = "Master key must be 32 hex characters (128 bits).";
+        return;
+    }
+
+    let words = [];
+    // Parse initial 4 words (Round 0) - each word = 4 bytes = 8 hex chars
+    for (let i = 0; i < 4; i++) {
+        let chunk = keyStr.substr(i*8, 8);
+        words.push(chunk.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+    }
+
+    renderMatrix(words.slice(0, 4), 0, "Initial Round: Words mapped row-wise.");
+
+    let rc = 1;
+    for (let r = 1; r <= maxRounds; r++) {
+        let prevWord = [...words[words.length - 1]];
+        let gSteps = "";
+
+        // G-Function for the first word of the round
+        prevWord.push(prevWord.shift()); // RotWord
+        gSteps += `Rot: [${prevWord.map(h)}] | `;
+
+        prevWord = prevWord.map(b => SBOX[b]); // SubWord
+        gSteps += `Sub: [${prevWord.map(h)}] | `;
+
+        prevWord[0] ^= rc; // XOR Rcon
+        gSteps += `Rcon(0x${h(rc)}): [${prevWord.map(h)}]`;
+
+        let currentRoundWords = [];
+        for (let i = 0; i < 4; i++) {
+            let temp = (i === 0) ? prevWord : words[words.length - 1];
+            let newWord = words[words.length - 4].map((b, idx) => b ^ temp[idx]);
+            words.push(newWord);
+            currentRoundWords.push(newWord);
+        }
+
+        renderMatrix(currentRoundWords, r, gSteps);
+
+        // Update rc (finite field doubling)
+        rc = (rc << 1);
+        if (rc & 0x100) rc ^= 0x11b;
+        rc &= 0xff;
+    }
+}
+
+function renderMatrix(rWords, rNum, log) {
+    let container = document.createElement('div');
+    container.className = 'round-container';
+    container.innerHTML = `<h3>Round ${rNum} Matrix</h3><div class="g-func">${log}</div>`;
+
+    let table = `<table class="matrix">`;
+    for (let i = 0; i < 4; i++) {
+        table += "<tr>";
+        // FILL ROW-WISE: Each word is one row
+        for (let j = 0; j < 4; j++) {
+            table += `<td>${h(rWords[i][j])}</td>`;
+        }
+        table += "</tr>";
+    }
+    table += "</table>";
+    container.innerHTML += table;
+    document.getElementById('aesOutput').appendChild(container);
+}
+
+/* ================= S-DES SCRIPT (from des.html) ================= */
+const S0 = [
+    [1,0,3,2],
+    [3,2,1,0],
+    [0,2,1,3],
+    [3,1,3,2]
+];
+
+const S1 = [
+    [0,1,2,3],
+    [2,0,1,3],
+    [3,0,1,0],
+    [2,1,0,3]
+];
+
+function permute(bits, table) {
+    return table.map(i => String(bits[i-1])).join('');
+}
+function leftShift(bits, n) {
+    return bits.slice(n) + bits.slice(0,n);
+}
+function xor(a,b){
+    let r="";
+    for(let i=0;i<a.length;i++)
+        r += (a[i]===b[i])?"0":"1";
+    return r;
+}
+function sboxLookup(bits, sbox){
+    let row = parseInt(bits[0]+bits[3],2);
+    let col = parseInt(bits[1]+bits[2],2);
+    return sbox[row][col].toString(2).padStart(2,'0');
+}
+
+function F(right, subkey, EP, log){
+    log.push("\n--- Function F ---");
+    let expanded = permute(right, EP);
+    log.push("Expanded: " + expanded);
+
+    let xored = xor(expanded, subkey);
+    log.push("After XOR with subkey: " + xored);
+
+    let left4 = xored.slice(0,4);
+    let right4 = xored.slice(4);
+
+    let s0 = sboxLookup(left4, S0);
+    let s1 = sboxLookup(right4, S1);
+
+    log.push("S0 Output: " + s0);
+    log.push("S1 Output: " + s1);
+
+    let combined = s0 + s1;
+    log.push("Combined S-Box: " + combined);
+
+    return combined;
+}
+
+function generateKeys(key, P10, P8, log){
+    log.push("====== KEY GENERATION ======");
+
+    let key_p10 = permute(key, P10);
+    log.push("After P10: " + key_p10);
+
+    let left = key_p10.slice(0,5);
+    let right = key_p10.slice(5);
+
+    let left1 = leftShift(left,1);
+    let right1 = leftShift(right,1);
+    let ls1 = left1 + right1;
+    log.push("After LS-1: " + ls1);
+
+    let K1 = permute(ls1, P8);
+    log.push("Subkey K1: " + K1);
+
+    let left2 = leftShift(left1,2);
+    let right2 = leftShift(right1,2);
+    let ls2 = left2 + right2;
+    log.push("After LS-2: " + ls2);
+
+    let K2 = permute(ls2, P8);
+    log.push("Subkey K2: " + K2);
+
+    return {K1, K2};
+}
+
+function processSDES(isEncrypt){
+    let log = [];
+
+    let text = document.getElementById("desText").value.trim();
+    let key = document.getElementById("desKey").value.trim();
+
+    // parse permutation inputs safely (split and map to numbers)
+    let P10 = document.getElementById("desP10").value.trim().split(/\s+/).map(Number);
+    let P8  = document.getElementById("desP8").value.trim().split(/\s+/).map(Number);
+    let IP  = document.getElementById("desIP").value.trim().split(/\s+/).map(Number);
+    let IPinv = document.getElementById("desIPinv").value.trim().split(/\s+/).map(Number);
+    let EP  = document.getElementById("desEP").value.trim().split(/\s+/).map(Number);
+
+    // basic validation
+    if (!text || !key || P10.length !== 10 || P8.length !== 8 || IP.length !== 8 || IPinv.length !== 8 || EP.length !== 8) {
+        document.getElementById("desResult").innerText = "Please fill all fields with appropriate lengths (8-bit text, 10-bit key, and correct permutation tables).";
+        return;
+    }
+
+    let keys = generateKeys(key, P10, P8, log);
+
+    let K1 = isEncrypt ? keys.K1 : keys.K2;
+    let K2 = isEncrypt ? keys.K2 : keys.K1;
+
+    log.push("\n====== " + (isEncrypt ? "ENCRYPTION" : "DECRYPTION") + " ======");
+
+    let ip = permute(text, IP);
+    log.push("After IP: " + ip);
+
+    let left = ip.slice(0,4);
+    let right = ip.slice(4);
+
+    // Round 1
+    let f1 = F(right, K1, EP, log);
+    left = xor(left, f1);
+    log.push("After XOR with Left: " + left);
+
+    // Swap
+    let temp = left;
+    left = right;
+    right = temp;
+    log.push("After Swap: " + left + right);
+
+    // Round 2
+    let f2 = F(right, K2, EP, log);
+    left = xor(left, f2);
+    log.push("After XOR with Left: " + left);
+
+    let preoutput = left + right;
+    log.push("Before IP Inverse: " + preoutput);
+
+    let final = permute(preoutput, IPinv);
+
+    log.push("\n====== FINAL OUTPUT ======");
+    log.push(isEncrypt ? "Cipher Text: " + final : "Plain Text: " + final);
+
+    document.getElementById("desResult").innerText = log.join("\n");
+}
+</script>
+
+</body>
+</html>

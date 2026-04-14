@@ -1,0 +1,908 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Cryptography Tool - Encrypt & Decrypt</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #38bdf8;
+            text-shadow: 0 0 20px rgba(56, 189, 248, 0.5);
+        }
+        
+        .box {
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            margin-bottom: 20px;
+        }
+        
+        .selector {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        select, input, button {
+            padding: 12px 15px;
+            margin: 8px 0;
+            width: 100%;
+            border-radius: 8px;
+            border: 2px solid #334155;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        select, input {
+            background: #0f172a;
+            color: white;
+        }
+        
+        select:focus, input:focus {
+            outline: none;
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+        }
+        
+        button {
+            background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            border: none;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(56, 189, 248, 0.4);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .button-group button {
+            flex: 1;
+        }
+        
+        .decrypt-btn {
+            background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .output {
+            background: #020617;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid #38bdf8;
+        }
+        
+        .output h4 {
+            color: #38bdf8;
+            margin-bottom: 15px;
+            font-size: 16px;
+        }
+        
+        .step {
+            background: #0f172a;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 6px;
+            border-left: 3px solid #22d3ee;
+        }
+        
+        .step-title {
+            color: #22d3ee;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        
+        .step-content {
+            color: #cbd5e1;
+            line-height: 1.6;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .result {
+            background: #065f46;
+            color: #6ee7b7;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+            font-weight: bold;
+            font-size: 16px;
+            word-break: break-all;
+        }
+        
+        .matrix {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            margin: 15px 0;
+            max-width: 300px;
+        }
+        
+        .matrix-cell {
+            background: #1e293b;
+            padding: 10px;
+            text-align: center;
+            border-radius: 4px;
+            font-weight: bold;
+            border: 1px solid #334155;
+        }
+        
+        .key-matrix {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin: 15px 0;
+            max-width: 200px;
+        }
+        
+        .error {
+            background: #7f1d1d;
+            color: #fca5a5;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #94a3b8;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .grid-inputs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+        
+        .grid-inputs input {
+            margin: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+    <h1>🔐 Advanced Cryptography Tool</h1>
+    
+    <div class="box selector">
+        <select id="menu" onchange="showSection()">
+            <option value="">-- Select Cipher --</option>
+            <option value="caesar">Caesar Cipher</option>
+            <option value="playfair">Playfair Cipher</option>
+            <option value="hill">Hill Cipher (3×3)</option>
+        </select>
+    </div>
+
+    <!-- CAESAR CIPHER -->
+    <div id="caesar" class="hidden">
+        <div class="box">
+            <h2>Caesar Cipher</h2>
+            
+            <div class="input-group">
+                <label>Shift Key (Number)</label>
+                <input type="number" id="c_key" placeholder="e.g., 3" value="3">
+            </div>
+            
+            <div class="input-group">
+                <label>Plaintext (for Encryption)</label>
+                <input type="text" id="c_plaintext" placeholder="e.g., HELLO">
+                <button onclick="caesarEncrypt()">🔒 Encrypt</button>
+            </div>
+            
+            <div class="input-group">
+                <label>Ciphertext (for Decryption)</label>
+                <input type="text" id="c_ciphertext" placeholder="e.g., KHOOR">
+                <button class="decrypt-btn" onclick="caesarDecrypt()">🔓 Decrypt</button>
+            </div>
+            
+            <div id="c_out"></div>
+        </div>
+    </div>
+
+    <!-- PLAYFAIR CIPHER -->
+    <div id="playfair" class="hidden">
+        <div class="box">
+            <h2>Playfair Cipher</h2>
+            
+            <div class="input-group">
+                <label>Key (Uppercase Letters)</label>
+                <input type="text" id="p_key" placeholder="e.g., MONARCHY">
+            </div>
+            
+            <div class="input-group">
+                <label>Plaintext (for Encryption)</label>
+                <input type="text" id="p_plaintext" placeholder="e.g., HELLO">
+                <button onclick="playfairEncrypt()">🔒 Encrypt</button>
+            </div>
+            
+            <div class="input-group">
+                <label>Ciphertext (for Decryption)</label>
+                <input type="text" id="p_ciphertext" placeholder="e.g., GCUSGX">
+                <button class="decrypt-btn" onclick="playfairDecrypt()">🔓 Decrypt</button>
+            </div>
+            
+            <div id="p_out"></div>
+        </div>
+    </div>
+
+    <!-- HILL CIPHER -->
+    <div id="hill" class="hidden">
+        <div class="box">
+            <h2>Hill Cipher</h2>
+            
+            <div class="input-group">
+                <label>Matrix Size</label>
+                <select id="h_size" onchange="updateHillMatrix()">
+                    <option value="2">2×2 Matrix</option>
+                    <option value="3" selected>3×3 Matrix</option>
+                    <option value="4">4×4 Matrix</option>
+                </select>
+            </div>
+            
+            <div class="input-group">
+                <label>Key Matrix (<span id="h_matrix_label">3×3</span>)</label>
+                <div id="h_key_inputs" class="grid-inputs"></div>
+            </div>
+            
+            <div class="input-group">
+                <label>Plaintext (for Encryption - Length Must Be Multiple of <span id="h_multiple_enc">3</span>)</label>
+                <input type="text" id="h_plaintext" placeholder="e.g., ACT">
+                <button onclick="hillEncrypt()">🔒 Encrypt</button>
+            </div>
+            
+            <div class="input-group">
+                <label>Ciphertext (for Decryption - Length Must Be Multiple of <span id="h_multiple_dec">3</span>)</label>
+                <input type="text" id="h_ciphertext" placeholder="e.g., POH">
+                <button class="decrypt-btn" onclick="hillDecrypt()">🔓 Decrypt</button>
+            </div>
+            
+            <div id="h_out"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ---------- UTILITY FUNCTIONS ---------- */
+function showSection() {
+    ["caesar", "playfair", "hill"].forEach(id => {
+        document.getElementById(id).classList.add("hidden");
+    });
+    let v = document.getElementById("menu").value;
+    if (v) {
+        document.getElementById(v).classList.remove("hidden");
+        if (v === "hill") updateHillMatrix();
+    }
+}
+
+function createOutput(id) {
+    return document.getElementById(id);
+}
+
+function updateHillMatrix() {
+    let size = parseInt(document.getElementById("h_size").value);
+    let container = document.getElementById("h_key_inputs");
+    let label = document.getElementById("h_matrix_label");
+    let multipleEnc = document.getElementById("h_multiple_enc");
+    let multipleDec = document.getElementById("h_multiple_dec");
+    
+    label.textContent = `${size}×${size}`;
+    multipleEnc.textContent = size;
+    multipleDec.textContent = size;
+    container.style.gridTemplateColumns = `repeat(${size}, 1fr)`;
+    
+    // Default values for different matrix sizes
+    const defaults = {
+        2: [6, 24, 1, 13],
+        3: [6, 24, 1, 13, 16, 10, 20, 17, 15],
+        4: [6, 24, 1, 13, 16, 10, 20, 17, 15, 21, 18, 8, 5, 3, 2, 7]
+    };
+    
+    container.innerHTML = '';
+    for (let i = 0; i < size * size; i++) {
+        let input = document.createElement('input');
+        input.type = 'number';
+        input.id = `k${i + 1}`;
+        input.placeholder = `k${Math.floor(i / size) + 1}${(i % size) + 1}`;
+        input.value = defaults[size][i] || 0;
+        container.appendChild(input);
+    }
+}
+
+// Initialize Hill matrix on page load
+window.onload = function() {
+    updateHillMatrix();
+};
+
+/* ---------- CAESAR CIPHER ---------- */
+function caesarEncrypt() {
+    let text = document.getElementById("c_plaintext").value.toUpperCase().replace(/[^A-Z]/g, '');
+    let key = parseInt(document.getElementById("c_key").value) || 0;
+    let output = createOutput("c_out");
+    
+    if (!text) {
+        output.innerHTML = '<div class="error">Please enter plaintext to encrypt!</div>';
+        return;
+    }
+    
+    let steps = '<div class="output"><h4>Encryption Steps:</h4>';
+    steps += `<div class="step"><div class="step-title">Input (Plaintext):</div><div class="step-content">${text}</div></div>`;
+    steps += `<div class="step"><div class="step-title">Shift Key:</div><div class="step-content">${key}</div></div>`;
+    steps += `<div class="step"><div class="step-title">Encryption Formula:</div><div class="step-content">C = (P + key) mod 26</div></div>`;
+    
+    let result = "";
+    let detailedSteps = '<div class="step"><div class="step-title">Character-by-Character Encryption:</div><div class="step-content">';
+    
+    for (let i = 0; i < text.length; i++) {
+        let char = text[i];
+        let charCode = char.charCodeAt(0) - 65;
+        let shiftedCode = (charCode + key) % 26;
+        if (shiftedCode < 0) shiftedCode += 26;
+        let encryptedChar = String.fromCharCode(shiftedCode + 65);
+        
+        detailedSteps += `${char} (${charCode}) + ${key} = ${(charCode + key)} mod 26 = ${shiftedCode} → ${encryptedChar}<br>`;
+        result += encryptedChar;
+    }
+    
+    detailedSteps += '</div></div>';
+    steps += detailedSteps;
+    steps += `<div class="result">✅ Ciphertext: ${result}</div></div>`;
+    
+    output.innerHTML = steps;
+}
+
+function caesarDecrypt() {
+    let text = document.getElementById("c_ciphertext").value.toUpperCase().replace(/[^A-Z]/g, '');
+    let key = parseInt(document.getElementById("c_key").value) || 0;
+    let output = createOutput("c_out");
+    
+    if (!text) {
+        output.innerHTML = '<div class="error">Please enter ciphertext to decrypt!</div>';
+        return;
+    }
+    
+    let steps = '<div class="output"><h4>Decryption Steps:</h4>';
+    steps += `<div class="step"><div class="step-title">Input (Ciphertext):</div><div class="step-content">${text}</div></div>`;
+    steps += `<div class="step"><div class="step-title">Shift Key:</div><div class="step-content">${key}</div></div>`;
+    steps += `<div class="step"><div class="step-title">Decryption Formula:</div><div class="step-content">P = (C - key) mod 26<br>Use shift of -${key} (equivalent to +${26 - (key % 26)} mod 26)</div></div>`;
+    
+    let result = "";
+    let detailedSteps = '<div class="step"><div class="step-title">Character-by-Character Decryption:</div><div class="step-content">';
+    
+    for (let i = 0; i < text.length; i++) {
+        let char = text[i];
+        let charCode = char.charCodeAt(0) - 65;
+        let shiftedCode = (charCode - key) % 26;
+        if (shiftedCode < 0) shiftedCode += 26;
+        let decryptedChar = String.fromCharCode(shiftedCode + 65);
+        
+        detailedSteps += `${char} (${charCode}) - ${key} = ${(charCode - key)} mod 26 = ${shiftedCode} → ${decryptedChar}<br>`;
+        result += decryptedChar;
+    }
+    
+    detailedSteps += '</div></div>';
+    steps += detailedSteps;
+    steps += `<div class="result">✅ Plaintext: ${result}</div></div>`;
+    
+    output.innerHTML = steps;
+}
+
+/* ---------- PLAYFAIR CIPHER ---------- */
+function generatePlayfairMatrix(key) {
+    key = key.toUpperCase().replace(/[^A-Z]/g, '').replace(/J/g, 'I');
+    let used = new Array(26).fill(false);
+    let matrix = [];
+    
+    // Add key characters
+    for (let ch of key) {
+        let idx = ch.charCodeAt(0) - 65;
+        if (!used[idx]) {
+            matrix.push(ch);
+            used[idx] = true;
+        }
+    }
+    
+    // Add remaining letters
+    for (let i = 0; i < 26; i++) {
+        if (i === 9) continue; // Skip 'J'
+        if (!used[i]) {
+            matrix.push(String.fromCharCode(i + 65));
+        }
+    }
+    
+    return matrix;
+}
+
+function findPosition(matrix, ch) {
+    ch = ch === 'J' ? 'I' : ch;
+    let idx = matrix.indexOf(ch);
+    return { row: Math.floor(idx / 5), col: idx % 5 };
+}
+
+function preparePairs(text) {
+    text = text.toUpperCase().replace(/[^A-Z]/g, '').replace(/J/g, 'I');
+    let pairs = [];
+    let i = 0;
+    
+    while (i < text.length) {
+        let a = text[i];
+        let b = (i + 1 < text.length) ? text[i + 1] : 'X';
+        
+        if (a === b) {
+            pairs.push([a, 'X']);
+            i++;
+        } else {
+            pairs.push([a, b]);
+            i += 2;
+        }
+    }
+    
+    return pairs;
+}
+
+function playfairEncrypt() {
+    let key = document.getElementById("p_key").value;
+    let text = document.getElementById("p_plaintext").value;
+    let output = createOutput("p_out");
+    
+    if (!key || !text) {
+        output.innerHTML = '<div class="error">Please enter both key and plaintext!</div>';
+        return;
+    }
+    
+    let matrix = generatePlayfairMatrix(key);
+    let pairs = preparePairs(text);
+    
+    let steps = '<div class="output"><h4>Encryption Steps:</h4>';
+    
+    // Show key matrix
+    steps += '<div class="step"><div class="step-title">Step 1: Generate 5×5 Key Matrix</div>';
+    steps += '<div class="matrix">';
+    for (let i = 0; i < 25; i++) {
+        steps += `<div class="matrix-cell">${matrix[i]}</div>`;
+    }
+    steps += '</div></div>';
+    
+    // Show text preparation
+    steps += `<div class="step"><div class="step-title">Step 2: Prepare Plaintext</div>`;
+    steps += `<div class="step-content">Input (Plaintext): ${text.toUpperCase().replace(/[^A-Z]/g, '')}<br>`;
+    steps += `After J→I replacement and pairing:<br>`;
+    pairs.forEach((p, i) => {
+        steps += `Pair ${i + 1}: ${p[0]}${p[1]}<br>`;
+    });
+    steps += `</div></div>`;
+    
+    // Encrypt each pair
+    let ciphertext = "";
+    steps += '<div class="step"><div class="step-title">Step 3: Encrypt Each Pair</div><div class="step-content">';
+    steps += `Rules:<br>`;
+    steps += `• Same row → Shift RIGHT<br>`;
+    steps += `• Same column → Shift DOWN<br>`;
+    steps += `• Rectangle → Swap columns<br><br>`;
+    
+    for (let i = 0; i < pairs.length; i++) {
+        let [a, b] = pairs[i];
+        let pos1 = findPosition(matrix, a);
+        let pos2 = findPosition(matrix, b);
+        let c1, c2;
+        
+        if (pos1.row === pos2.row) {
+            // Same row - shift right
+            c1 = matrix[pos1.row * 5 + (pos1.col + 1) % 5];
+            c2 = matrix[pos2.row * 5 + (pos2.col + 1) % 5];
+            steps += `${a}${b} → Same row (${pos1.row}): shift right → ${c1}${c2}<br>`;
+        } else if (pos1.col === pos2.col) {
+            // Same column - shift down
+            c1 = matrix[((pos1.row + 1) % 5) * 5 + pos1.col];
+            c2 = matrix[((pos2.row + 1) % 5) * 5 + pos2.col];
+            steps += `${a}${b} → Same column (${pos1.col}): shift down → ${c1}${c2}<br>`;
+        } else {
+            // Rectangle - swap columns
+            c1 = matrix[pos1.row * 5 + pos2.col];
+            c2 = matrix[pos2.row * 5 + pos1.col];
+            steps += `${a}${b} → Rectangle: (${pos1.row},${pos1.col}) and (${pos2.row},${pos2.col}) → ${c1}${c2}<br>`;
+        }
+        
+        ciphertext += c1 + c2;
+    }
+    
+    steps += '</div></div>';
+    steps += `<div class="result">✅ Ciphertext: ${ciphertext}</div></div>`;
+    
+    output.innerHTML = steps;
+}
+
+function playfairDecrypt() {
+    let key = document.getElementById("p_key").value;
+    let text = document.getElementById("p_ciphertext").value;
+    let output = createOutput("p_out");
+    
+    if (!key || !text) {
+        output.innerHTML = '<div class="error">Please enter both key and ciphertext!</div>';
+        return;
+    }
+    
+    let matrix = generatePlayfairMatrix(key);
+    text = text.toUpperCase().replace(/[^A-Z]/g, '').replace(/J/g, 'I');
+    
+    let steps = '<div class="output"><h4>Decryption Steps:</h4>';
+    
+    // Show key matrix
+    steps += '<div class="step"><div class="step-title">Step 1: Generate 5×5 Key Matrix</div>';
+    steps += '<div class="matrix">';
+    for (let i = 0; i < 25; i++) {
+        steps += `<div class="matrix-cell">${matrix[i]}</div>`;
+    }
+    steps += '</div></div>';
+    
+    // Prepare pairs
+    let pairs = [];
+    for (let i = 0; i < text.length; i += 2) {
+        if (i + 1 < text.length) {
+            pairs.push([text[i], text[i + 1]]);
+        }
+    }
+    
+    steps += `<div class="step"><div class="step-title">Step 2: Split Ciphertext into Pairs</div>`;
+    steps += `<div class="step-content">Input (Ciphertext): ${text}<br><br>`;
+    pairs.forEach((p, i) => {
+        steps += `Pair ${i + 1}: ${p[0]}${p[1]}<br>`;
+    });
+    steps += `</div></div>`;
+    
+    // Decrypt each pair
+    let plaintext = "";
+    steps += '<div class="step"><div class="step-title">Step 3: Decrypt Each Pair (Reverse Rules)</div><div class="step-content">';
+    steps += `Rules for Decryption:<br>`;
+    steps += `• Same row → Shift LEFT<br>`;
+    steps += `• Same column → Shift UP<br>`;
+    steps += `• Rectangle → Swap columns (same as encryption)<br><br>`;
+    
+    for (let i = 0; i < pairs.length; i++) {
+        let [a, b] = pairs[i];
+        let pos1 = findPosition(matrix, a);
+        let pos2 = findPosition(matrix, b);
+        let p1, p2;
+        
+        if (pos1.row === pos2.row) {
+            // Same row - shift left
+            p1 = matrix[pos1.row * 5 + (pos1.col + 4) % 5];
+            p2 = matrix[pos2.row * 5 + (pos2.col + 4) % 5];
+            steps += `${a}${b} → Same row (${pos1.row}): shift left → ${p1}${p2}<br>`;
+        } else if (pos1.col === pos2.col) {
+            // Same column - shift up
+            p1 = matrix[((pos1.row + 4) % 5) * 5 + pos1.col];
+            p2 = matrix[((pos2.row + 4) % 5) * 5 + pos2.col];
+            steps += `${a}${b} → Same column (${pos1.col}): shift up → ${p1}${p2}<br>`;
+        } else {
+            // Rectangle - swap columns (same as encryption)
+            p1 = matrix[pos1.row * 5 + pos2.col];
+            p2 = matrix[pos2.row * 5 + pos1.col];
+            steps += `${a}${b} → Rectangle: (${pos1.row},${pos1.col}) and (${pos2.row},${pos2.col}) → ${p1}${p2}<br>`;
+        }
+        
+        plaintext += p1 + p2;
+    }
+    
+    steps += '</div></div>';
+    steps += `<div class="result">✅ Plaintext: ${plaintext}</div></div>`;
+    
+    output.innerHTML = steps;
+}
+
+/* ---------- HILL CIPHER ---------- */
+function getKeyMatrix() {
+    let size = parseInt(document.getElementById("h_size").value);
+    let matrix = [];
+    
+    for (let i = 0; i < size; i++) {
+        matrix[i] = [];
+        for (let j = 0; j < size; j++) {
+            let val = parseInt(document.getElementById(`k${i * size + j + 1}`).value) || 0;
+            matrix[i][j] = val;
+        }
+    }
+    
+    return matrix;
+}
+
+function matrixMod(val) {
+    let result = val % 26;
+    return result < 0 ? result + 26 : result;
+}
+
+function determinant(matrix) {
+    let n = matrix.length;
+    
+    if (n === 2) {
+        return matrix[0][0] * matrix[1][1] - matrix[0][1] * matrix[1][0];
+    }
+    
+    if (n === 3) {
+        return matrix[0][0] * (matrix[1][1] * matrix[2][2] - matrix[1][2] * matrix[2][1]) -
+               matrix[0][1] * (matrix[1][0] * matrix[2][2] - matrix[1][2] * matrix[2][0]) +
+               matrix[0][2] * (matrix[1][0] * matrix[2][1] - matrix[1][1] * matrix[2][0]);
+    }
+    
+    // For larger matrices, use cofactor expansion (Laplace expansion)
+    let det = 0;
+    for (let j = 0; j < n; j++) {
+        det += Math.pow(-1, j) * matrix[0][j] * determinant(getMinor(matrix, 0, j));
+    }
+    return det;
+}
+
+function getMinor(matrix, row, col) {
+    let n = matrix.length;
+    let minor = [];
+    
+    for (let i = 0; i < n; i++) {
+        if (i === row) continue;
+        let newRow = [];
+        for (let j = 0; j < n; j++) {
+            if (j === col) continue;
+            newRow.push(matrix[i][j]);
+        }
+        minor.push(newRow);
+    }
+    
+    return minor;
+}
+
+function modInverse(a, m) {
+    a = matrixMod(a);
+    for (let x = 1; x < m; x++) {
+        if (matrixMod(a * x) === 1) return x;
+    }
+    return null;
+}
+
+function getCofactor(matrix, row, col) {
+    return Math.pow(-1, row + col) * determinant(getMinor(matrix, row, col));
+}
+
+function adjugate(matrix) {
+    let n = matrix.length;
+    let adj = [];
+    
+    for (let i = 0; i < n; i++) {
+        adj[i] = [];
+        for (let j = 0; j < n; j++) {
+            // Transpose while calculating cofactor
+            adj[i][j] = getCofactor(matrix, j, i);
+        }
+    }
+    
+    return adj;
+}
+
+function inverseMatrix(matrix) {
+    let n = matrix.length;
+    let det = determinant(matrix);
+    let detMod = matrixMod(det);
+    let detInv = modInverse(detMod, 26);
+    
+    if (detInv === null) return null;
+    
+    let adj = adjugate(matrix);
+    let inv = [];
+    
+    for (let i = 0; i < n; i++) {
+        inv[i] = [];
+        for (let j = 0; j < n; j++) {
+            inv[i][j] = matrixMod(detInv * adj[i][j]);
+        }
+    }
+    
+    return inv;
+}
+
+function hillEncrypt() {
+    let text = document.getElementById("h_plaintext").value.toUpperCase().replace(/[^A-Z]/g, '');
+    let key = getKeyMatrix();
+    let size = key.length;
+    let output = createOutput("h_out");
+    
+    if (!text) {
+        output.innerHTML = '<div class="error">Please enter plaintext to encrypt!</div>';
+        return;
+    }
+    
+    if (text.length % size !== 0) {
+        output.innerHTML = `<div class="error">Plaintext length must be a multiple of ${size}! Current length: ${text.length}</div>`;
+        return;
+    }
+    
+    let steps = '<div class="output"><h4>Encryption Steps:</h4>';
+    
+    // Show key matrix
+    steps += `<div class="step"><div class="step-title">Step 1: Key Matrix (${size}×${size})</div>`;
+    steps += `<div class="key-matrix" style="grid-template-columns: repeat(${size}, 1fr);">`;
+    for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+            steps += `<div class="matrix-cell">${key[i][j]}</div>`;
+        }
+    }
+    steps += '</div></div>';
+    
+    steps += `<div class="step"><div class="step-title">Step 2: Convert Plaintext to Numbers</div>`;
+    steps += `<div class="step-content">Input (Plaintext): ${text}<br>`;
+    steps += `Formula: C = K × P (mod 26)<br>`;
+    
+    let result = "";
+    
+    for (let idx = 0; idx < text.length; idx += size) {
+        let p = [];
+        for (let i = 0; i < size; i++) {
+            p.push(text.charCodeAt(idx + i) - 65);
+        }
+        
+        let blockText = text.substr(idx, size);
+        steps += `<br>Block ${Math.floor(idx / size) + 1}: ${blockText} = [${p.join(', ')}]<br>`;
+        
+        // Matrix multiplication
+        let c = [];
+        for (let i = 0; i < size; i++) {
+            let sum = 0;
+            let calc = "";
+            for (let j = 0; j < size; j++) {
+                sum += key[i][j] * p[j];
+                calc += `${key[i][j]}×${p[j]}`;
+                if (j < size - 1) calc += " + ";
+            }
+            c.push(matrixMod(sum));
+            steps += `c${i + 1} = (${calc}) mod 26 = ${sum} mod 26 = ${c[i]}<br>`;
+        }
+        
+        let cipher = c.map(v => String.fromCharCode(v + 65)).join('');
+        steps += `Ciphertext block: [${c.join(', ')}] = ${cipher}<br>`;
+        
+        result += cipher;
+    }
+    
+    steps += '</div></div>';
+    steps += `<div class="result">✅ Ciphertext: ${result}</div></div>`;
+    
+    output.innerHTML = steps;
+}
+
+function hillDecrypt() {
+    let text = document.getElementById("h_ciphertext").value.toUpperCase().replace(/[^A-Z]/g, '');
+    let key = getKeyMatrix();
+    let size = key.length;
+    let output = createOutput("h_out");
+    
+    if (!text) {
+        output.innerHTML = '<div class="error">Please enter ciphertext to decrypt!</div>';
+        return;
+    }
+    
+    if (text.length % size !== 0) {
+        output.innerHTML = `<div class="error">Ciphertext length must be a multiple of ${size}! Current length: ${text.length}</div>`;
+        return;
+    }
+    
+    // Calculate inverse matrix
+    let invKey = inverseMatrix(key);
+    
+    if (invKey === null) {
+        output.innerHTML = '<div class="error">⚠️ Key matrix is not invertible! Determinant has no modular inverse mod 26.<br>Please choose a different key matrix.</div>';
+        return;
+    }
+    
+    let steps = '<div class="output"><h4>Decryption Steps:</h4>';
+    
+    // Show key matrix
+    steps += `<div class="step"><div class="step-title">Step 1: Key Matrix (${size}×${size})</div>`;
+    steps += `<div class="key-matrix" style="grid-template-columns: repeat(${size}, 1fr);">`;
+    for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+            steps += `<div class="matrix-cell">${key[i][j]}</div>`;
+        }
+    }
+    steps += '</div></div>';
+    
+    // Show determinant calculation
+    let det = determinant(key);
+    let detMod = matrixMod(det);
+    let detInv = modInverse(detMod, 26);
+    
+    steps += `<div class="step"><div class="step-title">Step 2: Calculate Inverse Key Matrix</div>`;
+    steps += `<div class="step-content">`;
+    steps += `Determinant of K = ${det}<br>`;
+    steps += `det(K) mod 26 = ${detMod}<br>`;
+    steps += `Modular inverse of ${detMod} mod 26 = ${detInv}<br><br>`;
+    steps += `Inverse Key Matrix (K⁻¹):</div>`;
+    steps += `<div class="key-matrix" style="grid-template-columns: repeat(${size}, 1fr);">`;
+    for (let i = 0; i < size; i++) {
+        for (let j = 0; j < size; j++) {
+            steps += `<div class="matrix-cell">${invKey[i][j]}</div>`;
+        }
+    }
+    steps += '</div></div>';
+    
+    steps += `<div class="step"><div class="step-title">Step 3: Decrypt Using K⁻¹</div>`;
+    steps += `<div class="step-content">Input (Ciphertext): ${text}<br>`;
+    steps += `Formula: P = K⁻¹ × C (mod 26)<br>`;
+    
+    let result = "";
+    
+    for (let idx = 0; idx < text.length; idx += size) {
+        let c = [];
+        for (let i = 0; i < size; i++) {
+            c.push(text.charCodeAt(idx + i) - 65);
+        }
+        
+        let blockText = text.substr(idx, size);
+        steps += `<br>Block ${Math.floor(idx / size) + 1}: ${blockText} = [${c.join(', ')}]<br>`;
+        
+        // Matrix multiplication with inverse
+        let p = [];
+        for (let i = 0; i < size; i++) {
+            let sum = 0;
+            let calc = "";
+            for (let j = 0; j < size; j++) {
+                sum += invKey[i][j] * c[j];
+                calc += `${invKey[i][j]}×${c[j]}`;
+                if (j < size - 1) calc += " + ";
+            }
+            p.push(matrixMod(sum));
+            steps += `p${i + 1} = (${calc}) mod 26 = ${sum} mod 26 = ${p[i]}<br>`;
+        }
+        
+        let plain = p.map(v => String.fromCharCode(v + 65)).join('');
+        steps += `Plaintext block: [${p.join(', ')}] = ${plain}<br>`;
+        
+        result += plain;
+    }
+    
+    steps += '</div></div>';
+    steps += `<div class="result">✅ Plaintext: ${result}</div></div>`;
+    
+    output.innerHTML = steps;
+}
+</script>
+
+</body>
+</html>

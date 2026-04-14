@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Manual Diffie-Hellman Demo</title>
+    <style>
+        body { font-family: Times New Roman; background: #eef2ff; }
+        .container { width: 600px; margin: auto; background: white; padding: 20px; }
+        input, button { width: 100%; padding: 6px; margin: 4px 0; }
+        pre { background: #f1f5f9; padding: 15px; font-size: 16px; }
+        button { background: #1e3a8a; color: white; border: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2 align="center">Manual Diffie-Hellman Key Exchange</h2>
+
+        <form id="dhForm">
+            Prime (P): <input name="p" id="p" required>
+            Generator (G): <input name="g" id="g" required>
+            Private key A: <input name="a" id="a" required>
+            Private key B: <input name="b" id="b" required>
+            <button type="button" onclick="generateKeys()">GENERATE KEYS</button>
+        </form>
+
+        <h3>Step-by-Step Output</h3>
+        <pre id="output"></pre>
+    </div>
+
+    <script>
+        function manualModExp(base, exp, mod) {
+            let result = 1;
+            base = base % mod;
+            while (exp > 0) {
+                if (exp % 2 === 1) {
+                    result = (result * base) % mod;
+                }
+                exp = Math.floor(exp / 2);
+                base = (base * base) % mod;
+            }
+            return result;
+        }
+
+        function generateKeys() {
+            const P = parseInt(document.getElementById("p").value);
+            const G = parseInt(document.getElementById("g").value);
+            const a = parseInt(document.getElementById("a").value);
+            const b = parseInt(document.getElementById("b").value);
+            let output = "";
+
+            // Step 1: Compute public keys
+            const A = manualModExp(G, a, P);
+            const B = manualModExp(G, b, P);
+            output += `Public key A = G^a mod P = ${G}^${a} mod ${P} = ${A}\n`;
+            output += `Public key B = G^b mod P = ${G}^${b} mod ${P} = ${B}\n`;
+
+            // Step 2: Compute shared secret
+            const key1 = manualModExp(B, a, P);
+            const key2 = manualModExp(A, b, P);
+            output += `Shared key computed by A = B^a mod P = ${B}^${a} mod ${P} = ${key1}\n`;
+            output += `Shared key computed by B = A^b mod P = ${A}^${b} mod ${P} = ${key2}\n`;
+            output += `Both keys match: ${key1 === key2}`;
+
+            document.getElementById("output").textContent = output;
+        }
+    </script>
+</body>
+</html>
