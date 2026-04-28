@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CMAC & HMAC - Complete Step-by-Step Implementation</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #0d1117;
+            color: #c9d1d9;
+            margin: 0;
+            padding: 20px;
+        }
+        h1, h2, h3 { color: #58a6ff; }
+        h3 { color: #f0883e; border-bottom: 1px solid #30363d; padding-bottom: 5px; }
+        .container { max-width: 100%; overflow-x: auto; }
+        .section { 
+            background: #161b22; 
+            padding: 20px; 
+            margin: 20px 0; 
+            border-radius: 8px; 
+            border: 1px solid #30363d;
+        }
+        input, button {
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 6px;
+            border: 1px solid #30363d;
+        }
+        input { background: #0d1117; color: #c9d1d9; width: 300px; }
+        button { 
+            background: #238636; 
+            color: white; 
+            cursor: pointer; 
+            font-weight: bold;
+        }
+        button:hover { background: #2ea043; }
+        .output {
+            background: #0d1117;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 12px;
+            line-height: 1.6;
+            white-space: pre-wrap;
+            word-break: break-all;
+            max-height: 600px;
+            overflow-y: auto;
+            border: 1px solid #30363d;
+        }
+        .step { color: #7ee787; font-weight: bold; }
+        .value { color: #d2a8ff; }
+        .highlight { color: #ffa657; }
+        .label { color: #79c0ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 CMAC & HMAC - Complete Step-by-Step Debug</h1>
+        <p>All intermediate calculations are printed for educational purposes!</p>
+
+        <div class="section">
+            <h2>HMAC-SHA256</h2>
+            <input type="text" id="hmacKey" value="key" placeholder="Key">
+            <input type="text" id="hmacMsg" value="Hi" placeholder="Message">
+            <button onclick="runHMAC()">Generate HMAC with Steps</button>
+            <div class="output" id="hmacOutput"></div>
+        </div>
+
+        <div class="section">
+            <h2>CMAC-AES</h2>
+            <input type="text" id="cmacKey" value="000102030405060708090a0b0c0d0e0f" placeholder="Key (32 hex chars)">
+            <input type="text" id="cmacMsg" value="Hello" placeholder="Message">
+            <button onclick="runCMAC()">Generate CMAC with Steps</button>
+            <div class="output" id="cmacOutput"></div>
+        </div>
+    </div>
+
+<script>
+/* ============================================================
+   GLOBAL STEP PRINTER
+   ============================================================ */
+let stepOutput = [];
+
+function print(text, type = '') {
+    stepOutput.push(text);
+}
+
+function printSection(title) {
+    print('\n' + '='.repeat(80), 'step');
+    print('  ' + title, 'step');
+    print('='.repeat(80), 'step');
+}
+
+function printSubsection(title) {
+    print('\n--- ' + title + ' ---', 'step');
+}
+
+function printValue(label, value) {
+    print(`  ${label}: ${value}`, 'value');
+}
+
+function showOutput(elementId) {
+    document.getElementById(elementId).textContent = stepOutput.join('\n');
+    stepOutput = [];
+}
+
+/* ============================================================
+   SHA-256 IMPLEMENTATION WITH ALL STEPS
+   ============================================================ */
+
+const SHA256_INIT = [
+    0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a,
+    0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19
+];
+
+const SHA256_K = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
+];
+
+function rotr(n, x) { return ((x >>> n) | (x << (32 - n))) >>> 0; }
+function shr(n, x) { return x >>> n; }
+function ch(x, y, z) { return (x & y) ^ (~x & z); }
+function maj(x, y, z) { return (x & y) ^ (x & z) ^ (y & z); }
+function sigma0(x) { return rotr(2, x) ^ rotr(13, x) ^ rotr(22, x); }
+function sigma1(x) { return rotr(6, x) ^ rotr(11, x) ^ rotr(25, x); }
+function gamma0(x) { return rotr(7, x) ^ rotr(18, x) ^ shr(3, x); }
+function gamma1(x) { return rotr(17, x) ^ rotr(19, x) ^ shr(10, x); }
+
+function stringToBytes(str) {
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        bytes.push(str.charCodeAt(i) & 0xFF);
+    }
+    return bytes;
+}
+
+function bytesToHex(bytes) {
+    return bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function sha256WithSteps(message) {
+    printSection('SHA-256 HASH CALCULATION');
+    printValue('Input Message', message);
+    printValue('Message Length (bits)', message.length * 8);
+    
+    // Step 1: Convert to bytes
+    printSubsection('Step 1: Convert message to bytes');
+    const msgBytes = stringToBytes(message);
+    printValue('Message bytes (decimal)', msgBytes.join(', '));
+    printValue('Message bytes (hex)', bytesToHex(msgBytes));
+    
+    // Step 2: Padding
+    printSubsection('Step 2: Padding');
+    msgBytes.push(0x80);
+    printValue('After adding 1 bit (0x80)', bytesToHex(msgBytes));
+    
+    const msgLen = msgBytes.length;
+    const padLen = (msgLen % 64 < 56) ? (56 - msgLen % 64) : (120 - msgLen % 64);
+    printValue('Padding needed (bytes)', padLen);
+    
+    for (let i = 0; i < padLen; i++) msgBytes.push(0x00);
+    printValue('After zero padding', bytesToHex(msgBytes));
+    
+    const bitLen = message.length * 8;
+    msgBytes.push((bitLen >>> 24) & 0xFF);
+    msgBytes.push((bitLen >>> 16) & 0xFF);
+    msgBytes.push((bitLen >>> 8) & 0xFF);
+    msgBytes.push(bitLen & 0xFF);
+    printValue('After length append', bytesToHex(msgBytes));
+    printValue('Total padded length', msgBytes.length + ' bytes (' + (msgBytes.length * 8) + ' bits)');
+    
+    // Step 3: Initialize Hash Values
+    printSubsection('Step 3: Initialize Hash Values (H)');
+    let h = [...SHA256_INIT];
+    for (let i = 0; i < 8; i++) {
+        printValue(`H[${i}]`, '0x' + h[i].toString(16).padStart(8, '0'));
+    }
+    
+    // Step 4: Process each 512-bit chunk
+    printSubsection('Step 4: Process Message in 512-bit Chunks');
+    
+    for (let chunk = 0; chunk < msgBytes.length / 64; chunk++) {
+        print('\n>>> Processing Chunk #' + (chunk + 1) + ' <<<', 'step');
+        
+        // Create message schedule
+        const w = new Array(64);
+        
+        printSubsection('4.' + (chunk + 1) + '.1: Message Schedule (W)');
+        
+        // First 16 words from chunk
+        for (let i = 0; i < 16; i++) {
+            w[i] = (msgBytes[chunk * 64 + i * 4] << 24) |
+                   (msgBytes[chunk * 64 + i * 4 + 1] << 16) |
+                   (msgBytes[chunk * 64 + i * 4 + 2] << 8) |
+                   msgBytes[chunk * 64 + i * 4 + 3];
+            if (i < 4 || i === 15) {
+                printValue(`W[${i}]`, '0x' + w[i].toString(16).padStart(8, '0'));
+            }
+        }
+        print('  ... (remaining words 4-14 computed similarly)');
+        
+        // Extend to 64 words
+        printSubsection('4.' + (chunk + 1) + '.2: Extend to 64 words');
+        for (let i = 16; i < 64; i++) {
+            const oldW = w[i - 2];
+            const term1 = gamma1(oldW);
+            const term2 = w[i - 7];
+            const term3 = gamma0(w[i - 15]);
+            const term4 = w[i - 16];
+            w[i] = (term1 + term2 + term3 + term4) >>> 0;
+            if (i === 16 || i === 32 || i === 48 || i === 63) {
+                printValue(`W[${i}]`, '0x' + w[i].toString(16).padStart(8, '0'));
+                printValue(`  γ1(W[${i-2}])`, '0x' + term1.toString(16).padStart(8, '0'));
+                printValue(`  + W[${i-7}]`, '0x' + term2.toString(16).padStart(8, '0'));
+                printValue(`  + γ0(W[${i-15}])`, '0x' + term3.toString(16).padStart(8, '0'));
+                printValue(`  + W[${i-16}]`, '0x' + term4.toString(16).padStart(8, '0'));
+            }
+        }
+        
+        // Initialize working variables
+        printSubsection('4.' + (chunk + 1) + '.3: Initialize Working Variables');
+        let a = h[0], b = h[1], c = h[2], d = h[3];
+        let e = h[4], f = h[5], g = h[6], hh = h[7];
+        
+        printValue('a = H[0]', '0x' + a.toString(16).padStart(8, '0'));
+        printValue('b = H[1]', '0x' + b.toString(16).padStart(8, '0'));
+        printValue('c = H[2]', '0x' + c.toString(16).padStart(8, '0'));
+        printValue('d = H[3]', '0x' + d.toString(16).padStart(8, '0'));
+        printValue('e = H[4]', '0x' + e.toString(16).padStart(8, '0'));
+        printValue('f = H[5]', '0x' + f.toString(16).padStart(8, '0'));
+        printValue('g = H[6]', '0x' + g.toString(16).padStart(8, '0'));
+        printValue('h = H[7]', '0x' + hh.toString(16).padStart(8, '0'));
+        
+        // 64 rounds
+        printSubsection('4.' + (chunk + 1) + '.4: 64 Rounds of Compression');
+        for (let i = 0; i < 64; i++) {
+            const t1_val = hh;
+            const sigma1_e = sigma1(e);
+            const ch_efg = ch(e, f, g);
+            const k_i = SHA256_K[i];
+            const w_i = w[i];
+            
+            const t1 = (hh + sigma1_e + ch_efg + k_i + w_i) >>> 0;
+            const t2 = (sigma0(a) + maj(a, b, c)) >>> 0;
+            
+            if (i === 0 || i === 31 || i === 63) {
+                print(`\n  Round ${i}:`);
+                printValue('    T1 = h + Σ1(e) + Ch(e,f,g) + K[i] + W[i]', 
+                    `0x${hh.toString(16).padStart(8,'0')} + 0x${sigma1_e.toString(16).padStart(8,'0')} + 0x${ch_efg.toString(16).padStart(8,'0')} + 0x${k_i.toString(16).padStart(8,'0')} + 0x${w_i.toString(16).padStart(8,'0')}`);
+                printValue('    T1 =', '0x' + t1.toString(16).padStart(8, '0'));
+                printValue('    T2 = Σ0(a) + Maj(a,b,c)', 
+                    `0x${sigma0(a).toString(16).padStart(8,'0')} + 0x${maj(a,b,c).toString(16).padStart(8,'0')}`);
+                printValue('    T2 =', '0x' + t2.toString(16).padStart(8, '0'));
+            }
+            
+            hh = g;
+            g = f;
+            f = e;
+            e = (d + t1) >>> 0;
+            d = c;
+            c = b;
+            b = a;
+            a = (t1 + t2) >>> 0;
+            
+            if (i === 0 || i === 31 || i === 63) {
+                printValue('    New a', '0x' + a.toString(16).padStart(8, '0'));
+                printValue('    New e', '0x' + e.toString(16).padStart(8, '0'));
+            }
+        }
+        
+        // Add compressed chunk to hash
+        printSubsection('4.' + (chunk + 1) + '.5: Update Hash Values');
+        h[0] = (h[0] + a) >>> 0;
+        h[1] = (h[1] + b) >>> 0;
+        h[2] = (h[2] + c) >>> 0;
+        h[3] = (h[3] + d) >>> 0;
+        h[4] = (h[4] + e) >>> 0;
+        h[5] = (h[5] + f) >>> 0;
+        h[6] = (h[6] + g) >>> 0;
+        h[7] = (h[7] + hh) >>> 0;
+        
+        printValue('H[0] += a', '0x' + h[0].toString(16).padStart(8, '0'));
+        printValue('H[1] += b', '0x' + h[1].toString(16).padStart(8, '0'));
+        printValue('H[2] += c', '0x' + h[2].toString(16).padStart(8, '0'));
+        printValue('H[3] += d', '0x' + h[3].toString(16).padStart(8, '0'));
+        printValue('H[4] += e', '0x' + h[4].toString(16).padStart(8, '0'));
+        printValue('H[5] += f', '0x' + h[5].toString(16).padStart(8, '0'));
+        printValue('H[6] += g', '0x' + h[6].toString(16).padStart(8, '0'));
+        printValue('H[7] += h', '0x' + h[7].toString(16).padStart(8, '0'));
+    }
+    
+    // Final hash
+    printSubsection('Final Hash Value');
+    const hashHex = h.map(x => x.toString(16).padStart(8, '0')).join('');
+    printValue('SHA-256 Hash', hashHex);
+    
+    return hashHex;
+}
+
+/* ============================================================
+   HMAC IMPLEMENTATION WITH ALL STEPS
+   ============================================================ */
+
+function hexToBytes(hex) {
+    const bytes = [];
+    for (let i = 0; i < hex.length; i += 2) {
+        bytes.push(parseInt(hex.substr(i, 2), 16));
+    }
+    return bytes;
+}
+
+function hmacWithSteps(key, message) {
+    printSection('HMAC-SHA256 CALCULATION');
+    printValue('Key', key);
+    printValue('Message', message);
+    
+    const blockSize = 64;
+    
+    printSubsection('Step 1: Key Processing');
+    printValue('Block Size', blockSize + ' bytes');
+    
+    // Hash key if longer than block size
+    let keyBytes;
+    if (key.length > blockSize) {
+        print('Key is longer than block size, hashing it...');
+        const hashedKey = sha256WithSteps(key);
+        keyBytes = hexToBytes(hashedKey);
+        printValue('Hashed Key', hashedKey);
+    } else {
+        keyBytes = stringToBytes(key);
+    }
+    printValue('Key Bytes', bytesToHex(keyBytes));
+    printValue('Key Length', keyBytes.length + ' bytes');
+    
+    printSubsection('Step 2: Pad Key to Block Size');
+    const keyPadded = new Array(blockSize);
+    for (let i = 0; i < blockSize; i++) {
+        keyPadded[i] = keyBytes[i] || 0;
+    }
+    printValue('Padded Key', bytesToHex(keyPadded));
+    
+    printSubsection('Step 3: Create Inner and Outer Keys');
+    const innerKey = [];
+    const outerKey = [];
+    for (let i = 0; i < blockSize; i++) {
+        innerKey[i] = keyPadded[i] ^ 0x36;
+        outerKey[i] = keyPadded[i] ^ 0x5C;
+    }
+    printValue('Inner Key (ipad)', bytesToHex(innerKey));
+    printValue('Outer Key (opad)', bytesToHex(outerKey));
+    
+    printSubsection('Step 4: Inner Hash - SHA256(innerKey || message)');
+    const innerData = [...innerKey, ...stringToBytes(message)];
+    let innerStr = '';
+    for (let i = 0; i < innerData.length; i++) {
+        innerStr += String.fromCharCode(innerData[i]);
+    }
+    printValue('Inner Data (hex)', bytesToHex(innerData));
+    print('Computing SHA-256 of inner data...');
+    const innerHash = sha256WithSteps(innerStr);
+    printValue('Inner Hash', innerHash);
+    
+    printSubsection('Step 5: Outer Hash - SHA256(outerKey || innerHash)');
+    const innerHashBytes = hexToBytes(innerHash);
+    const outerData = [...outerKey, ...innerHashBytes];
+    let outerStr = '';
+    for (let i = 0; i < outerData.length; i++) {
+        outerStr += String.fromCharCode(outerData[i]);
+    }
+    printValue('Outer Data (hex)', bytesToHex(outerData));
+    print('Computing SHA-256 of outer data...');
+    const finalHash = sha256WithSteps(outerStr);
+    
+    printSubsection('Final HMAC Result');
+    printValue('HMAC-SHA256', finalHash);
+    
+    return finalHash;
+}
+
+/* ============================================================
+   AES IMPLEMENTATION WITH ALL STEPS (For CMAC)
+   ============================================================ */
+
+const SBOX = [
+    0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
+    0xca, 0x82, 0xc9, 0x7d, 0xfa, 0x59, 0x47, 0xf0, 0xad, 0xd4, 0xa2, 0xaf, 0x9c, 0xa4, 0x72, 0xc0,
+    0xb7, 0xfd, 0x93, 0x26, 0x36, 0x3f, 0xf7, 0xcc, 0x34, 0xa5, 0xe5, 0xf1, 0x71, 0xd8, 0x31, 0x15,
+    0x04, 0xc7, 0x23, 0xc3, 0x18, 0x96, 0x05, 0x9a, 0x07, 0x12, 0x80, 0xe2, 0xeb, 0x27, 0xb2, 0x75,
+    0x09, 0x83, 0x2c, 0x1a, 0x1b, 0x6e, 0x5a, 0xa0, 0x52, 0x3b, 0xd6, 0xb3, 0x29, 0xe3, 0x2f, 0x84,
+    0x53, 0xd1, 0x00, 0xed, 0x20, 0xfc, 0xb1, 0x5b, 0x6a, 0xcb, 0xbe, 0x39, 0x4a, 0x4c, 0x58, 0xcf,
+    0xd0, 0xef, 0xaa, 0xfb, 0x43, 0x4d, 0x33, 0x85, 0x45, 0xf9, 0x02, 0x7f, 0x50, 0x3c, 0x9f, 0xa8,
+    0x51, 0xa3, 0x40, 0x8f, 0x92, 0x9d, 0x38, 0xf5, 0xbc, 0xb6, 0xda, 0x21, 0x10, 0xff, 0xf3, 0xd2,
+    0xcd, 0x0c, 0x13, 0xec, 0x5f, 0x97, 0x44, 0x17, 0xc4, 0xa7, 0x7e, 0x3d, 0x64, 0x5d, 0x19, 0x73,
+    0x60, 0x81, 0x4f, 0xdc, 0x22, 0x2a, 0x90, 0x88, 0x46, 0xee, 0xb8, 0x14, 0xde, 0x5e, 0x0b, 0xdb,
+    0xe0, 0x32, 0x3a, 0x0a, 0x49, 0x06, 0x24, 0x5c, 0xc2, 0xd3, 0xac, 0x62, 0x91, 0x95, 0xe4, 0x79,
+    0xe7, 0xc8, 0x37, 0x6d, 0x8d, 0xd5, 0x4e, 0xa9, 0x6c, 0x56, 0xf4, 0xea, 0x65, 0x7a, 0xae, 0x08,
+    0xba, 0x78, 0x25, 0x2e, 0x1c, 0xa6, 0xb4, 0xc6, 0xe8, 0xdd, 0x74, 0x1f, 0x4b, 0xbd, 0x8b, 0x8a,
+    0x70, 0x3e, 0xb5, 0x66, 0x48, 0x03, 0xf6, 0x0e, 0x61, 0x35, 0x57, 0xb9, 0x86, 0xc1, 0x1d, 0x9e,
+    0xe1, 0xf8, 0x98, 0x11, 0x69, 0xd9, 0x8e, 0x94, 0x9b, 0x1e, 0x87, 0xe9, 0xce, 0x55, 0x28, 0xdf,
+    0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
+];
+
+function xtime(x) {
+    return ((x << 1) ^ (((x >> 7) & 1) * 0x1B)) & 0xFF;
+}
+
+function gfMul2(a, b) {
+    let result = 0;
+    let aa = a;
+    let bb = b;
+    for (let i = 0; i < 8; i++) {
+        if ((bb & 1) !== 0) {
+            result ^= aa;
+        }
+        const hiBitSet = (aa & 0x80) !== 0;
+        aa = (aa << 1) & 0xFF;
+        if (hiBitSet) {
+            aa ^= 0x1B;
+        }
+        bb = (bb >> 1) & 0xFF;
+    }
+    return result;
+}
+
+function keyExpansion(key) {
+    const w = new Array(44);
+    
+    printSubsection('AES Key Schedule');
+    printValue('Input Key', bytesToHex(key));
+    
+    for (let i = 0; i < 4; i++) {
+        w[i] = (key[i * 4] << 24) | (key[i * 4 + 1] << 16) | (key[i * 4 + 2] << 8) | key[i * 4 + 3];
+    }
+    printValue('W[0-3]', `0x${w[0].toString(16).padStart(8,'0')} 0x${w[1].toString(16).padStart(8,'0')} 0x${w[2].toString(16).padStart(8,'0')} 0x${w[3].toString(16).padStart(8,'0')}`);
+    
+    const rcon = [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1b, 0x36];
+    
+    for (let i = 4; i < 44; i++) {
+        let temp = w[i - 1];
+        
+        if (i % 4 === 0) {
+            print(`\nRound ${i/4} key generation:`);
+            // RotWord
+            temp = ((temp << 8) | ((temp >> 24) & 0xFF)) >>> 0;
+            printValue('  After RotWord', '0x' + temp.toString(16).padStart(8, '0'));
+            
+            // SubWord
+            const b0 = (temp >> 24) & 0xFF;
+            const b1 = (temp >> 16) & 0xFF;
+            const b2 = (temp >> 8) & 0xFF;
+            const b3 = temp & 0xFF;
+            temp = (SBOX[b0] << 24) | (SBOX[b1] << 16) | (SBOX[b2] << 8) | SBOX[b3];
+            printValue('  After SubWord', '0x' + temp.toString(16).padStart(8, '0'));
+            
+            // XOR with Rcon
+            const round = (i / 4) - 1;
+            temp ^= (rcon[round] << 24);
+            printValue('  After XOR Rcon', '0x' + temp.toString(16).padStart(8, '0'));
+        }
+        
+        w[i] = (w[i - 4] ^ temp) >>> 0;
+        if (i % 4 === 0) {
+            printValue(`  W[${i}]`, '0x' + w[i].toString(16).padStart(8, '0'));
+        }
+    }
+    
+    return w;
+}
+
+function subBytes(state) {
+    for (let i = 0; i < 16; i++) {
+        const row = Math.floor(i / 4);
+        const col = i % 4;
+        const val = state[row * 4 + col];
+        state[row * 4 + col] = SBOX[val];
+    }
+    return state;
+}
+
+function shiftRows(state) {
+    const temp = [...state];
+    state[1] = temp[5];
+    state[5] = temp[9];
+    state[9] = temp[13];
+    state[13] = temp[1];
+    state[2] = temp[10];
+    state[6] = temp[14];
+    state[10] = temp[2];
+    state[14] = temp[6];
+    state[3] = temp[15];
+    state[7] = temp[3];
+    state[11] = temp[7];
+    state[15] = temp[11];
+    return state;
+}
+
+function mixColumns(state) {
+    for (let col = 0; col < 4; col++) {
+        const idx = col * 4;
+        const s0 = state[idx];
+        const s1 = state[idx + 1];
+        const s2 = state[idx + 2];
+        const s3 = state[idx + 3];
+        
+        state[idx] = gfMul2(s0, 0x02) ^ gfMul2(s1, 0x03) ^ s2 ^ s3;
+        state[idx + 1] = s0 ^ gfMul2(s1, 0x02) ^ gfMul2(s2, 0x03) ^ s3;
+        state[idx + 2] = s0 ^ s1 ^ gfMul2(s2, 0x02) ^ gfMul2(s3, 0x03);
+        state[idx + 3] = gfMul2(s0, 0x03) ^ s1 ^ s2 ^ gfMul2(s3, 0x02);
+    }
+    return state;
+}
+
+function addRoundKey(state, roundKey) {
+    for (let i = 0; i < 16; i++) {
+        state[i] ^= roundKey[i];
+    }
+    return state;
+}
+
+function aesEncryptWithSteps(plaintext, key, label = 'AES') {
+    printSection(label + ' ENCRYPTION');
+    printValue('Input Block', bytesToHex(plaintext));
+    printValue('Key', bytesToHex(key));
+    
+    const w = keyExpansion(key);
+    
+    let state = [...plaintext];
+    printSubsection('Initial Round');
+    printValue('State before AddRoundKey', bytesToHex(state));
+    
+    const initialKeyBytes = [];
+    for (let i = 0; i < 4; i++) {
+        initialKeyBytes.push((w[i] >> 24) & 0xFF);
+        initialKeyBytes.push((w[i] >> 16) & 0xFF);
+        initialKeyBytes.push((w[i] >> 8) & 0xFF);
+        initialKeyBytes.push(w[i] & 0xFF);
+    }
+    printValue('Round Key 0', bytesToHex(initialKeyBytes));
+    state = addRoundKey(state, initialKeyBytes);
+    printValue('State after AddRoundKey', bytesToHex(state));
+    
+    // 9 main rounds
+    for (let round = 1; round < 10; round++) {
+        printSubsection(`Round ${round}`);
+        
+        const roundKeyWords = w.slice(round * 4, (round + 1) * 4);
+        const roundKeyBytes = [];
+        for (let i = 0; i < 4; i++) {
+            roundKeyBytes.push((roundKeyWords[i] >> 24) & 0xFF);
+            roundKeyBytes.push((roundKeyWords[i] >> 16) & 0xFF);
+            roundKeyBytes.push((roundKeyWords[i] >> 8) & 0xFF);
+            roundKeyBytes.push(roundKeyWords[i] & 0xFF);
+        }
+        
+        printValue('Input State', bytesToHex(state));
+        
+        state = subBytes(state);
+        printValue('After SubBytes', bytesToHex(state));
+        
+        state = shiftRows(state);
+        printValue('After ShiftRows', bytesToHex(state));
+        
+        state = mixColumns(state);
+        printValue('After MixColumns', bytesToHex(state));
+        
+        state = addRoundKey(state, roundKeyBytes);
+        printValue('After AddRoundKey', bytesToHex(state));
+    }
+    
+    // Final round
+    printSubsection('Final Round (10)');
+    const finalKeyWords = w.slice(40, 44);
+    const finalKeyBytes = [];
+    for (let i = 0; i < 4; i++) {
+        finalKeyBytes.push((finalKeyWords[i] >> 24) & 0xFF);
+        finalKeyBytes.push((finalKeyWords[i] >> 16) & 0xFF);
+        finalKeyBytes.push((finalKeyWords[i] >> 8) & 0xFF);
+        finalKeyBytes.push(finalKeyWords[i] & 0xFF);
+    }
+    
+    printValue('Input State', bytesToHex(state));
+    state = subBytes(state);
+    printValue('After SubBytes', bytesToHex(state));
+    state = shiftRows(state);
+    printValue('After ShiftRows', bytesToHex(state));
+    state = addRoundKey(state, finalKeyBytes);
+    printValue('After AddRoundKey (Final)', bytesToHex(state));
+    
+    printValue('Ciphertext', bytesToHex(state));
+    return state;
+}
+
+/* ============================================================
+   CMAC IMPLEMENTATION WITH ALL STEPS
+   ============================================================ */
+
+function leftShift1Bit(bytes) {
+    const result = new Array(bytes.length);
+    let carry = 0;
+    for (let i = bytes.length - 1; i >= 0; i--) {
+        result[i] = ((bytes[i] << 1) | carry) & 0xFF;
+        carry = (bytes[i] >> 7) & 1;
+    }
+    return result;
+}
+
+function cmacWithSteps(message, keyHex) {
+    printSection('CMAC-AES CALCULATION');
+    printValue('Key (hex)', keyHex);
+    printValue('Message', message);
+    
+    // Convert key
+    const key = hexToBytes(keyHex);
+    printValue('Key (bytes)', bytesToHex(key));
+    printValue('Key Length', key.length + ' bytes (128-bit)');
+    
+    printSubsection('Step 1: Generate Subkeys K1 and K2');
+    print('Computing L = AES(0^128)...');
+    
+    const zeroBlock = new Array(16).fill(0);
+    printValue('Zero Block', bytesToHex(zeroBlock));
+    
+    const L = aesEncryptWithSteps(zeroBlock, key, 'Generate L');
+    
+    printSubsection('Subkey K1 Generation');
+    printValue('L', bytesToHex(L));
+    const K1 = leftShift1Bit(L);
+    printValue('LeftShift(L)', bytesToHex(K1));
+    printValue('MSB(L)', '0x' + ((L[0] >> 7) & 1));
+    
+    if ((L[0] & 0x80) !== 0) {
+        K1[15] ^= 0x87;
+        print('MSB(L)=1, so K1 = K1 XOR 0x87');
+    }
+    printValue('K1 (final)', bytesToHex(K1));
+    
+    printSubsection('Subkey K2 Generation');
+    const K2 = leftShift1Bit(K1);
+    printValue('LeftShift(K1)', bytesToHex(K2));
+    printValue('MSB(K1)', '0x' + ((K1[0] >> 7) & 1));
+    
+    if ((K1[0] & 0x80) !== 0) {
+        K2[15] ^= 0x87;
+        print('MSB(K1)=1, so K2 = K2 XOR 0x87');
+    }
+    printValue('K2 (final)', bytesToHex(K2));
+    
+    printSubsection('Step 2: Message Processing');
+    const msgBytes = stringToBytes(message);
+    printValue('Message Bytes', bytesToHex(msgBytes));
+    printValue('Message Length', msgBytes.length + ' bytes');
+    
+    const blocks = [];
+    for (let i = 0; i < msgBytes.length; i += 16) {
+        blocks.push(msgBytes.slice(i, i + 16));
+    }
+    printValue('Number of Blocks', blocks.length);
+    
+    for (let i = 0; i < blocks.length; i++) {
+        printValue(`Block ${i+1}`, bytesToHex(blocks[i].concat(new Array(16 - blocks[i].length).fill(0))));
+    }
+    
+    printSubsection('Step 3: Last Block Processing');
+    let lastBlock = blocks[blocks.length - 1];
+    let M_last;
+    
+    if (lastBlock.length === 16) {
+        print('Last block is exactly 16 bytes - using K1');
+        M_last = new Array(16);
+        for (let i = 0; i < 16; i++) {
+            M_last[i] = lastBlock[i] ^ K1[i];
+        }
+        blocks.pop();
+    } else {
+        print('Last block is less than 16 bytes - padding with 0x80 and zeros, using K2');
+        M_last = new Array(16).fill(0);
+        for (let i = 0; i < lastBlock.length; i++) {
+            M_last[i] = lastBlock[i];
+        }
+        M_last[lastBlock.length] = 0x80;
+        printValue('Padded Last Block', bytesToHex(M_last));
+        
+        for (let i = 0; i < 16; i++) {
+            M_last[i] ^= K2[i];
+        }
+        printValue('After XOR with K2', bytesToHex(M_last));
+        blocks.pop();
+    }
+    printValue('M_last (final)', bytesToHex(M_last));
+    
+    printSubsection('Step 4: Accumulate XOR of All Blocks');
+    let X = new Array(16).fill(0);
+    printValue('Initial X', bytesToHex(X));
+    
+    for (let bi = 0; bi < blocks.length; bi++) {
+        const block = blocks[bi];
+        const paddedBlock = new Array(16).fill(0);
+        for (let i = 0; i < block.length; i++) {
+            paddedBlock[i] = block[i];
+        }
+        print(`XOR with Block ${bi + 1}: ${bytesToHex(X)} XOR ${bytesToHex(paddedBlock)}`);
+        for (let i = 0; i < 16; i++) {
+            X[i] ^= paddedBlock[i];
+        }
+        printValue(`X after Block ${bi + 1}`, bytesToHex(X));
+    }
+    
+    print('XOR with M_last...');
+    print(`${bytesToHex(X)} XOR ${bytesToHex(M_last)}`);
+    for (let i = 0; i < 16; i++) {
+        X[i] ^= M_last[i];
+    }
+    printValue('X (final before encryption)', bytesToHex(X));
+    
+    printSubsection('Step 5: Final AES Encryption');
+    const result = aesEncryptWithSteps(X, key, 'CMAC Final');
+    
+    printSubsection('CMAC Result');
+    printValue('CMAC-AES', bytesToHex(result));
+    
+    return result;
+}
+
+/* ============================================================
+   UI FUNCTIONS
+   ============================================================ */
+
+function runHMAC() {
+    const key = document.getElementById('hmacKey').value;
+    const msg = document.getElementById('hmacMsg').value;
+    hmacWithSteps(key, msg);
+    showOutput('hmacOutput');
+}
+
+function runCMAC() {
+    const keyHex = document.getElementById('cmacKey').value;
+    const msg = document.getElementById('cmacMsg').value;
+    cmacWithSteps(msg, keyHex);
+    showOutput('cmacOutput');
+}
+</script>
+</body>
+</html>
+
