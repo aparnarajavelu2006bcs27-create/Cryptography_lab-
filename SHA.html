@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SHA-512 Step Visualizer</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #0f172a;
+      color: #e2e8f0;
+    }
+    h1, h2 {
+      color: #38bdf8;
+    }
+    textarea, button {
+      width: 100%;
+      margin: 10px 0;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    textarea {
+      background: #1e293b;
+      color: white;
+      min-height: 120px;
+    }
+    button {
+      background: #0284c7;
+      color: white;
+      cursor: pointer;
+      font-weight: bold;
+    }
+    button:hover {
+      background: #0369a1;
+    }
+    pre {
+      background: #111827;
+      padding: 12px;
+      border-radius: 8px;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      border: 1px solid #334155;
+    }
+    .section {
+      margin-top: 20px;
+      padding: 15px;
+      background: #1e293b;
+      border-radius: 10px;
+    }
+    .small {
+      color: #94a3b8;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <h1>SHA-512 Visualizer</h1>
+  <p>Enter text to compute SHA-512 and print all major intermediate steps.</p>
+
+  <textarea id="inputText" placeholder="Enter text here..."></textarea>
+  <button onclick="runSHA512()">Compute SHA-512</button>
+
+  <div class="section">
+    <h2>Final Hash</h2>
+    <pre id="finalHash"></pre>
+  </div>
+
+  <div class="section">
+    <h2>Intermediate Steps</h2>
+    <pre id="steps"></pre>
+  </div>
+
+  <script>
+    const MASK_64 = (1n << 64n) - 1n;
+
+    const K = [
+      0x428a2f98d728ae22n, 0x7137449123ef65cdn, 0xb5c0fbcfec4d3b2fn, 0xe9b5dba58189dbbcn,
+      0x3956c25bf348b538n, 0x59f111f1b605d019n, 0x923f82a4af194f9bn, 0xab1c5ed5da6d8118n,
+      0xd807aa98a3030242n, 0x12835b0145706fben, 0x243185be4ee4b28cn, 0x550c7dc3d5ffb4e2n,
+      0x72be5d74f27b896fn, 0x80deb1fe3b1696b1n, 0x9bdc06a725c71235n, 0xc19bf174cf692694n,
+      0xe49b69c19ef14ad2n, 0xefbe4786384f25e3n, 0x0fc19dc68b8cd5b5n, 0x240ca1cc77ac9c65n,
+      0x2de92c6f592b0275n, 0x4a7484aa6ea6e483n, 0x5cb0a9dcbd41fbd4n, 0x76f988da831153b5n,
+      0x983e5152ee66dfabn, 0xa831c66d2db43210n, 0xb00327c898fb213fn, 0xbf597fc7beef0ee4n,
+      0xc6e00bf33da88fc2n, 0xd5a79147930aa725n, 0x06ca6351e003826fn, 0x142929670a0e6e70n,
+      0x27b70a8546d22ffcn, 0x2e1b21385c26c926n, 0x4d2c6dfc5ac42aedn, 0x53380d139d95b3dfn,
+      0x650a73548baf63den, 0x766a0abb3c77b2a8n, 0x81c2c92e47edaee6n, 0x92722c851482353bn,
+      0xa2bfe8a14cf10364n, 0xa81a664bbc423001n, 0xc24b8b70d0f89791n, 0xc76c51a30654be30n,
+      0xd192e819d6ef5218n, 0xd69906245565a910n, 0xf40e35855771202an, 0x106aa07032bbd1b8n,
+      0x19a4c116b8d2d0c8n, 0x1e376c085141ab53n, 0x2748774cdf8eeb99n, 0x34b0bcb5e19b48a8n,
+      0x391c0cb3c5c95a63n, 0x4ed8aa4ae3418acbn, 0x5b9cca4f7763e373n, 0x682e6ff3d6b2b8a3n,
+      0x748f82ee5defb2fcn, 0x78a5636f43172f60n, 0x84c87814a1f0ab72n, 0x8cc702081a6439ecn,
+      0x90befffA23631e28n, 0xa4506cebde82bde9n, 0xbef9a3f7b2c67915n, 0xc67178f2e372532bn,
+      0xca273eceea26619cn, 0xd186b8c721c0c207n, 0xeada7dd6cde0eb1en, 0xf57d4f7fee6ed178n,
+      0x06f067aa72176fban, 0x0a637dc5a2c898a6n, 0x113f9804bef90dAEn, 0x1b710b35131c471bn,
+      0x28db77f523047d84n, 0x32caab7b40c72493n, 0x3c9ebe0a15c9bebcn, 0x431d67c49c100d4cn,
+      0x4cc5d4becb3e42b6n, 0x597f299cfc657e2an, 0x5fcb6fab3ad6faecn, 0x6c44198c4a475817n
+    ];
+
+    const H0 = [
+      0x6a09e667f3bcc908n,
+      0xbb67ae8584caa73bn,
+      0x3c6ef372fe94f82bn,
+      0xa54ff53a5f1d36f1n,
+      0x510e527fade682d1n,
+      0x9b05688c2b3e6c1fn,
+      0x1f83d9abfb41bd6bn,
+      0x5be0cd19137e2179n
+    ];
+
+    function add64(...vals) {
+      let sum = 0n;
+      for (const v of vals) sum = (sum + v) & MASK_64;
+      return sum;
+    }
+
+    function rotr(x, n) {
+      n = BigInt(n);
+      return ((x >> n) | (x << (64n - n))) & MASK_64;
+    }
+
+    function shr(x, n) {
+      return x >> BigInt(n);
+    }
+
+    function toHex64(x) {
+      return x.toString(16).padStart(16, '0');
+    }
+
+    function bytesToHex(bytes) {
+      return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join(' ');
+    }
+
+    function textToBytes(str) {
+      return new TextEncoder().encode(str);
+    }
+
+    function bigIntTo16Bytes(x) {
+      const out = new Array(16).fill(0);
+      for (let i = 15; i >= 0; i--) {
+        out[i] = Number(x & 0xffn);
+        x >>= 8n;
+      }
+      return out;
+    }
+
+    function runSHA512() {
+      const input = document.getElementById("inputText").value;
+      const finalHashEl = document.getElementById("finalHash");
+      const stepsEl = document.getElementById("steps");
+
+      let log = "";
+
+      const bytes = Array.from(textToBytes(input));
+      log += "1. Input Text:\n" + input + "\n\n";
+      log += "2. UTF-8 Bytes (decimal):\n" + bytes.join(" ") + "\n\n";
+      log += "3. UTF-8 Bytes (hex):\n" + bytes.map(b => b.toString(16).padStart(2,'0')).join(" ") + "\n\n";
+
+      const originalBitLen = BigInt(bytes.length) * 8n;
+
+      let padded = [...bytes];
+      padded.push(0x80);
+
+      while ((padded.length % 128) !== 112) {
+        padded.push(0x00);
+      }
+
+      const lenBytes = bigIntTo16Bytes(originalBitLen);
+      padded.push(...lenBytes);
+
+      log += "4. Original Length (bits):\n" + originalBitLen.toString() + "\n\n";
+      log += "5. After Padding (hex bytes):\n" + padded.map(b => b.toString(16).padStart(2,'0')).join(" ") + "\n\n";
+      log += "6. Total Padded Length: " + padded.length + " bytes\n";
+      log += "   Number of 1024-bit chunks: " + (padded.length / 128) + "\n\n";
+
+      let H = [...H0];
+
+      for (let chunkStart = 0; chunkStart < padded.length; chunkStart += 128) {
+        const chunkIndex = chunkStart / 128 + 1;
+        const chunk = padded.slice(chunkStart, chunkStart + 128);
+
+        log += `7. Processing Chunk ${chunkIndex}:\n`;
+        log += bytesToHex(chunk) + "\n\n";
+
+        let W = new Array(80).fill(0n);
+
+        for (let i = 0; i < 16; i++) {
+          let word = 0n;
+          for (let j = 0; j < 8; j++) {
+            word = (word << 8n) | BigInt(chunk[i * 8 + j]);
+          }
+          W[i] = word;
+        }
+
+        for (let i = 16; i < 80; i++) {
+          const s0 = rotr(W[i - 15], 1) ^ rotr(W[i - 15], 8) ^ shr(W[i - 15], 7);
+          const s1 = rotr(W[i - 2], 19) ^ rotr(W[i - 2], 61) ^ shr(W[i - 2], 6);
+          W[i] = add64(W[i - 16], s0, W[i - 7], s1);
+        }
+
+        log += "8. Message Schedule W[0..79]:\n";
+        for (let i = 0; i < 80; i++) {
+          log += `W[${i}] = ${toHex64(W[i])}\n`;
+        }
+        log += "\n";
+
+        let [a, b, c, d, e, f, g, h] = H;
+
+        log += "9. Compression Rounds:\n";
+        for (let i = 0; i < 80; i++) {
+          const S1 = rotr(e, 14) ^ rotr(e, 18) ^ rotr(e, 41);
+          const ch = (e & f) ^ ((~e & MASK_64) & g);
+          const temp1 = add64(h, S1, ch, K[i], W[i]);
+
+          const S0 = rotr(a, 28) ^ rotr(a, 34) ^ rotr(a, 39);
+          const maj = (a & b) ^ (a & c) ^ (b & c);
+          const temp2 = add64(S0, maj);
+
+          h = g;
+          g = f;
+          f = e;
+          e = add64(d, temp1);
+          d = c;
+          c = b;
+          b = a;
+          a = add64(temp1, temp2);
+
+          log += `Round ${String(i + 1).padStart(2, '0')}:\n`;
+          log += `  S1   = ${toHex64(S1)}\n`;
+          log += `  ch   = ${toHex64(ch)}\n`;
+          log += `  temp1= ${toHex64(temp1)}\n`;
+          log += `  S0   = ${toHex64(S0)}\n`;
+          log += `  maj  = ${toHex64(maj)}\n`;
+          log += `  temp2= ${toHex64(temp2)}\n`;
+          log += `  a=${toHex64(a)} b=${toHex64(b)} c=${toHex64(c)} d=${toHex64(d)}\n`;
+          log += `  e=${toHex64(e)} f=${toHex64(f)} g=${toHex64(g)} h=${toHex64(h)}\n`;
+        }
+        log += "\n";
+
+        H[0] = add64(H[0], a);
+        H[1] = add64(H[1], b);
+        H[2] = add64(H[2], c);
+        H[3] = add64(H[3], d);
+        H[4] = add64(H[4], e);
+        H[5] = add64(H[5], f);
+        H[6] = add64(H[6], g);
+        H[7] = add64(H[7], h);
+
+        log += "10. Updated Hash State:\n";
+        for (let i = 0; i < 8; i++) {
+          log += `H[${i}] = ${toHex64(H[i])}\n`;
+        }
+        log += "\n";
+      }
+
+      const finalHash = H.map(toHex64).join("");
+      finalHashEl.textContent = finalHash;
+      stepsEl.textContent = log;
+    }
+  </script>
+</body>
+</html>
